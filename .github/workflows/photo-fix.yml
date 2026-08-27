@@ -10,22 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix photo registration refresh
+      - name: Fix photo storage compatibility
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="document.getElementById('photoInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(!f||current===null)return;const r=new FileReader();r.onload=()=>{const v=state[current]||{};v.photo=r.result;v.visited=true;v.updated=new Date().toISOString();v.date=new Date().toLocaleDateString('ja-JP');state[current]=v;save();openDetail(current)};r.readAsDataURL(f)});"
-          new="document.getElementById('photoInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(!f||current===null)return;const idx=current;const r=new FileReader();r.onload=()=>{const v=state[idx]||{};v.photo=r.result;v.visited=true;v.updated=new Date().toISOString();v.date=new Date().toLocaleDateString('ja-JP');state[idx]=v;localStorage.setItem('hinatabi_miyazaki',JSON.stringify(state));render();openDetail(idx);setTimeout(()=>{const photo=document.querySelector('#detail .photo img');if(photo){photo.src=v.photo}alert('📸 写真を登録しました！')},0)};r.readAsDataURL(f);e.target.value=''});"
+          old="async function load(){for(let t of ['m','d']){let s=t==='m'?ms:ds;for(let i in s){let v=s[i],ks=Array.isArray(v.photos)?v.photos:(v.photo?[t==='m'?String(i):'d'+i]:[]);for(let k of ks){let f=await get(k);if(f)urls[k]=URL.createObjectURL(f)}}}render()}"
+          new="async function load(){for(let t of ['m','d']){let s=t==='m'?ms:ds;for(let i in s){let v=s[i],ks=Array.isArray(v.photos)?v.photos:(v.photo?[t==='m'?String(i):'d'+i]:[]);for(let k of ks){let f=await get(k);if(!f&&t==='m'&&String(k)===String(i))f=await get(Number(i));if(f)urls[k]=URL.createObjectURL(f)}}}render()}"
           if old not in s:
-              raise SystemExit('target photo handler not found')
-          p.write_text(s.replace(old,new),encoding='utf-8')
+              raise SystemExit('target load function not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
       - name: Commit fix
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git diff --cached --quiet || git commit -m 'Fix immediate photo display after registration'
+          git diff --cached --quiet || git commit -m 'Fix legacy photo key compatibility'
           git push
